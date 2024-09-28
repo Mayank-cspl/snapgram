@@ -59,8 +59,18 @@ export async function saveUserToDB(user: {
 }
 
 // ============================== SIGN IN
+// ============================== SIGN IN
 export async function signInAccount(user: { email: string; password: string }) {
   try {
+    // Check if an account is already logged in
+    const currentSession = await account.getSession('current').catch(() => null);
+
+    if (currentSession) {
+      console.log("An active session already exists. Logging out the current session.");
+      await account.deleteSession('current');
+    }
+
+    // Create a new session
     const session = await account.createEmailSession(user.email, user.password);
 
     return session;
@@ -69,14 +79,18 @@ export async function signInAccount(user: { email: string; password: string }) {
   }
 }
 
+
 // ============================== GET ACCOUNT
 export async function getAccount() {
   try {
     const currentAccount = await account.get();
-
     return currentAccount;
   } catch (error) {
-    console.log(error);
+    if (error === 401) {
+      console.log("User is not authenticated or lacks permission.");
+    } else {
+      console.log(error);
+    }
   }
 }
 
@@ -210,17 +224,22 @@ export async function deleteFile(fileId: string) {
 // ============================== GET POSTS
 export async function searchPosts(searchTerm: string) {
   try {
+    const currentUser = await getAccount();
+    if (!currentUser) throw new Error("User is not authenticated.");
+
     const posts = await databases.listDocuments(
       appwriteConfig.databaseId,
       appwriteConfig.postCollectionId,
       [Query.search("caption", searchTerm)]
     );
 
-    if (!posts) throw Error;
-
     return posts;
   } catch (error) {
-    console.log(error);
+    if (error === 401) {
+      console.log("User is not authorized to perform this action.");
+    } else {
+      console.log(error);
+    }
   }
 }
 
